@@ -1,230 +1,286 @@
 ---
 layout: default
-title: 'Introducing Rift: The Blazing-Fast Mountebank Alternative That Will Transform Your API Testing'
+title: 'Introducing Rift: High-Performance API Mocking for Modern Development'
 ---
 
-# Introducing Rift: The Blazing-Fast Mountebank Alternative That Will Transform Your API Testing
+# Introducing Rift: High-Performance API Mocking for Modern Development
 
-*How a Rust rewrite delivers 20-250x performance improvement while maintaining full compatibility*
+*A blazing-fast mock server for testing microservices, simulating APIs, and chaos engineering*
 
 ---
 
-If you're using Mountebank for API mocking and service virtualization, you've probably experienced its pain points: slow startup times, memory-hungry processes, and test suites that take forever to run. What if I told you there's a drop-in replacement that's up to **250 times faster**?
+Modern software doesn't exist in isolation. Your application talks to payment processors, authentication services, third-party APIs, databases, and dozens of internal microservices. Testing all these interactions is one of the hardest problems in software development.
 
-Meet **Rift** — a high-performance, Mountebank-compatible mock server written in Rust that will fundamentally change how you think about API testing.
+**Rift** is a high-performance mock server that lets you simulate any HTTP service, inject faults, and test how your application behaves when dependencies fail — all without touching production systems.
 
-## The Problem with Traditional Mock Servers
+## The Problem: Testing Distributed Systems is Hard
 
-API mocking is essential for modern software development. Whether you're testing microservices in isolation, simulating third-party APIs, or building contract tests, mock servers are indispensable. Mountebank has been the go-to solution for years, and for good reason — it's flexible, well-documented, and feature-rich.
+Consider a typical e-commerce application:
 
-But there's a catch.
-
-As your test suite grows, Mountebank becomes a bottleneck:
-
-- **Startup time**: Spinning up mock servers for each test adds up
-- **Memory usage**: Each Node.js process consumes significant RAM
-- **Throughput**: Complex predicates (JSONPath, XPath) can drop to ~100 requests per second
-- **CI/CD costs**: Slow tests mean longer pipelines and higher cloud bills
-
-I've worked on projects where the mock server setup took longer than the actual tests. That's backwards.
-
-## Enter Rift: Same API, Incredible Performance
-
-Rift is a complete reimplementation of Mountebank in Rust. But here's what makes it special — **you don't need to change anything**:
-
-```bash
-# Your existing Mountebank command
-docker run -p 2525:2525 mountebank/mountebank
-
-# Simply becomes
-docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+```
+Your App → Payment API → Bank
+        → Inventory Service → Database
+        → Shipping API → Carrier
+        → Email Service → SMTP
 ```
 
-Your `imposters.json` files? They work unchanged. Your test code that calls the REST API? No modifications needed. Your CI/CD scripts? Just swap the image name.
+How do you test what happens when:
+- The payment API times out?
+- The inventory service returns an error?
+- The shipping API is slow?
+- The email service is down?
 
-### The Numbers Don't Lie
+You have three options:
 
-Here's what we measured in real-world benchmarks:
+1. **Use real services** — Expensive, slow, unreliable, and potentially dangerous (accidentally charging real cards?)
+2. **Build custom mocks** — Time-consuming and hard to maintain
+3. **Use a mock server** — Configure responses without writing code
 
-| Scenario | Mountebank | Rift | Improvement |
-|:---------|:-----------|:-----|:------------|
-| Simple stub matching | 1,900 RPS | 39,000 RPS | **20x faster** |
-| JSONPath predicates | 107 RPS | 26,500 RPS | **247x faster** |
-| XPath predicates | 169 RPS | 28,700 RPS | **170x faster** |
-| Complex AND/OR predicates | 900 RPS | 29,300 RPS | **32x faster** |
-| High concurrency (100 connections) | 1,800 RPS | 29,700 RPS | **16x faster** |
+Rift is option 3, done right.
 
-The JSONPath improvement is particularly striking. If your tests rely heavily on JSON body matching, you'll see dramatic speedups.
+## What Rift Does
 
-## Why Rust Makes the Difference
+Rift creates **imposters** — fake HTTP services that respond exactly how you configure them:
 
-Rift's performance comes from Rust's zero-cost abstractions and memory safety without garbage collection:
+```bash
+# Start Rift
+docker run -p 2525:2525 -p 4545:4545 ghcr.io/etacassiopeia/rift-proxy:latest
 
-1. **No GC pauses**: Rust's ownership model eliminates garbage collection entirely
-2. **Async I/O**: Built on Tokio, handling thousands of concurrent connections efficiently
-3. **Zero-copy parsing**: JSON and XML processing without unnecessary allocations
-4. **Native binaries**: No runtime interpretation overhead
+# Create a mock payment API
+curl -X POST http://localhost:2525/imposters -H "Content-Type: application/json" -d '{
+  "port": 4545,
+  "protocol": "http",
+  "stubs": [{
+    "predicates": [{ "equals": { "path": "/charge", "method": "POST" } }],
+    "responses": [{ "is": { "statusCode": 200, "body": "{\"status\": \"approved\", \"transactionId\": \"txn_123\"}" } }]
+  }]
+}'
 
-But performance isn't the only benefit. Rust's type system catches bugs at compile time that would be runtime errors in JavaScript. The result is a more reliable mock server.
+# Now your app can call http://localhost:4545/charge instead of the real payment API
+curl -X POST http://localhost:4545/charge
+# Returns: {"status": "approved", "transactionId": "txn_123"}
+```
 
-## Full Mountebank Compatibility
+Point your application at `localhost:4545` instead of the real payment API, and you have a fully controlled test environment.
 
-Rift implements the complete Mountebank feature set:
+## Why Rift?
 
-**Predicates:**
-- `equals`, `deepEquals` — Exact matching
-- `contains`, `startsWith`, `endsWith` — Partial matching
-- `matches` — Regular expressions
-- `exists` — Field presence checking
-- `jsonpath`, `xpath` — Structured data queries
-- `and`, `or`, `not` — Logical operators
+### 1. Blazing Fast Performance
 
-**Responses:**
-- Static responses (`is`)
-- Proxy responses with recording
-- JavaScript injection (`inject`)
+Rift is written in Rust, delivering exceptional throughput:
 
-**Behaviors:**
-- `wait` — Latency simulation
-- `decorate` — Response transformation
-- `copy` — Request data extraction
-- `lookup` — External data sources
-- `repeat` — Response cycling
+| Scenario | Requests/Second |
+|:---------|:----------------|
+| Simple matching | 39,000 RPS |
+| JSON body matching | 26,500 RPS |
+| XML/XPath matching | 28,700 RPS |
+| Complex predicates | 29,300 RPS |
 
-## Beyond Mountebank: Rift Extensions
+This means your test suite runs faster, your CI/CD pipelines complete sooner, and your cloud bills shrink.
 
-While maintaining compatibility, Rift adds powerful features through the `_rift` namespace:
+### 2. Powerful Request Matching
 
-### Native Fault Injection
+Match requests by any combination of:
+
+- **Path and method**: `/api/users` with `GET`
+- **Headers**: `Authorization: Bearer token123`
+- **Query parameters**: `?status=active&limit=10`
+- **JSON body**: Match specific fields with JSONPath
+- **XML body**: Match elements with XPath
+- **Regular expressions**: Pattern matching on any field
 
 ```json
 {
-  "is": { "statusCode": 200, "body": "OK" },
-  "_rift": {
-    "fault": {
-      "latency": { "probability": 0.3, "minMs": 100, "maxMs": 500 },
-      "error": { "probability": 0.1, "status": 503 }
-    }
-  }
+  "predicates": [{
+    "equals": { "method": "POST", "path": "/api/orders" },
+    "jsonpath": { "selector": "$.items[0].sku" },
+    "equals": { "body": "PROD-001" }
+  }]
 }
 ```
 
-No JavaScript required — just declarative chaos engineering.
+### 3. Native Fault Injection
 
-### Multi-Engine Scripting
+Test resilience without writing code. Inject latency, errors, and failures declaratively:
 
-Choose the right language for your team:
+```json
+{
+  "responses": [{
+    "is": { "statusCode": 200, "body": "OK" },
+    "_rift": {
+      "fault": {
+        "latency": { "probability": 0.3, "minMs": 100, "maxMs": 500 },
+        "error": { "probability": 0.1, "status": 503 }
+      }
+    }
+  }]
+}
+```
+
+This response will:
+- Add 100-500ms latency 30% of the time
+- Return a 503 error 10% of the time
+
+Perfect for chaos engineering and resilience testing.
+
+### 4. Stateful Mocking
+
+Real APIs have state. A user logs in, adds items to cart, then checks out. Rift supports stateful scenarios:
 
 ```json
 {
   "_rift": {
     "script": {
       "engine": "rhai",
-      "code": "let count = flow.get('count') + 1; flow.set('count', count); #{ statusCode: 200, body: `Request #${count}` }"
+      "code": "let count = flow.get('request_count') + 1; flow.set('request_count', count); #{ statusCode: 200, body: `Request #${count}` }"
     }
   }
 }
 ```
 
-Rift supports Rhai (built-in, sandboxed), Lua, and JavaScript.
+Each request increments a counter. Build authentication flows, shopping carts, rate limiters, and more.
 
-### Stateful Testing with Flow State
+### 5. Multi-Language Scripting
 
-Build complex multi-step test scenarios:
+When declarative configuration isn't enough, write dynamic responses in your preferred language:
+
+- **Rhai** (built-in, sandboxed) — Safe and fast
+- **Lua** — Familiar to many developers
+- **JavaScript** — Maximum flexibility
+
+### 6. Record and Replay
+
+Don't want to configure mocks manually? Record real traffic and replay it:
 
 ```json
 {
-  "_rift": {
-    "flowState": {
-      "backend": "redis",
-      "ttlSeconds": 300
-    }
-  }
+  "stubs": [{
+    "responses": [{
+      "proxy": {
+        "to": "https://api.example.com",
+        "mode": "proxyAlways",
+        "predicateGenerators": [{ "matches": { "path": true, "method": true } }]
+      }
+    }]
+  }]
 }
 ```
 
-State persists across requests, enabling scenarios like:
-- Authentication flows
-- Shopping cart simulations
-- Rate limiting tests
-- Retry mechanism validation
+Rift records all responses, which you can export and replay later without hitting the real API.
 
-## Getting Started in 60 Seconds
+## Mountebank Compatibility
+
+If you're already using [Mountebank](http://www.mbtest.org/), Rift is a drop-in replacement. Same API, same configuration format, just faster:
 
 ```bash
-# Pull the Docker image
-docker pull ghcr.io/etacassiopeia/rift-proxy:latest
+# Replace this
+docker run -p 2525:2525 mountebank/mountebank
 
-# Start Rift
+# With this
 docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
-
-# Create your first imposter
-curl -X POST http://localhost:2525/imposters \
-  -H "Content-Type: application/json" \
-  -d '{
-    "port": 4545,
-    "protocol": "http",
-    "stubs": [{
-      "predicates": [{ "equals": { "path": "/hello" } }],
-      "responses": [{ "is": { "statusCode": 200, "body": "Hello from Rift!" } }]
-    }]
-  }'
-
-# Test it
-curl http://localhost:4545/hello
-# Output: Hello from Rift!
 ```
 
-Already using Mountebank? Just mount your existing config:
+Your existing `imposters.json` files work unchanged. Rift implements the complete Mountebank API, so your test code doesn't need modifications.
 
-```bash
-docker run -p 2525:2525 \
-  -v $(pwd)/imposters.json:/imposters.json \
-  ghcr.io/etacassiopeia/rift-proxy:latest \
-  --configfile /imposters.json
-```
+Benchmarks show Rift is **20-250x faster** than Mountebank depending on the workload, with JSONPath predicates showing the most dramatic improvement.
 
-## What's Coming in This Series
+## Getting Started
 
-This is the first post in a comprehensive series on Rift:
-
-1. **Introducing Rift** (this post)
-2. **Getting Started with Rift in 5 Minutes**
-3. **Migrating from Mountebank: A Zero-Friction Guide**
-4. **Mastering Request Matching with Predicates**
-5. **Chaos Engineering Made Easy: Fault Injection**
-6. **Building Stateful Mock Services**
-7. **Dynamic Responses with Multi-Engine Scripting**
-8. **Recording and Replaying API Traffic**
-9. **Production-Ready Mocking: Docker, K8s, CI/CD**
-10. **Quality Assurance with rift-verify and rift-lint**
-
-## Try It Today
-
-Rift is open source under the Apache 2.0 license. The easiest way to try it:
+### Docker (Recommended)
 
 ```bash
 docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
 ```
 
-Or install via Homebrew:
+### Homebrew (macOS)
 
 ```bash
 brew tap etacassiopeia/rift
 brew install rift
 ```
 
-**Resources:**
+### Cargo (Rust)
+
+```bash
+cargo install rift-http-proxy
+```
+
+### npm (Node.js projects)
+
+```bash
+npm install @rift-vs/rift
+```
+
+## Your First Mock in 60 Seconds
+
+```bash
+# 1. Start Rift
+docker run -d -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+
+# 2. Create a mock API
+curl -X POST http://localhost:2525/imposters -H "Content-Type: application/json" -d '{
+  "port": 4545,
+  "protocol": "http",
+  "stubs": [
+    {
+      "predicates": [{ "equals": { "path": "/api/users/1" } }],
+      "responses": [{ "is": {
+        "statusCode": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"id\": 1, \"name\": \"Alice\", \"email\": \"alice@example.com\"}"
+      }}]
+    },
+    {
+      "predicates": [{ "equals": { "path": "/api/users/999" } }],
+      "responses": [{ "is": { "statusCode": 404, "body": "{\"error\": \"User not found\"}" }}]
+    }
+  ]
+}'
+
+# 3. Test it
+curl http://localhost:4545/api/users/1
+# {"id": 1, "name": "Alice", "email": "alice@example.com"}
+
+curl http://localhost:4545/api/users/999
+# {"error": "User not found"}
+```
+
+## Use Cases
+
+- **Unit/Integration Testing**: Mock external dependencies for fast, reliable tests
+- **Contract Testing**: Verify your app handles API responses correctly
+- **Chaos Engineering**: Test how your system behaves under failure conditions
+- **Development**: Work offline or without access to staging environments
+- **Demo Environments**: Show features without real backend dependencies
+- **Load Testing**: Consistent mock responses for benchmarking your application
+
+## What's Coming in This Series
+
+This is the first post in a comprehensive series:
+
+1. **Introducing Rift** (this post)
+2. **Getting Started with Rift in 5 Minutes**
+3. **Migrating from Mountebank**
+4. **Mastering Request Matching with Predicates**
+5. **Chaos Engineering Made Easy: Fault Injection**
+6. **Building Stateful Mock Services**
+7. **Dynamic Responses with Scripting**
+8. **Recording and Replaying API Traffic**
+9. **Production-Ready Mocking: Docker, K8s, CI/CD**
+10. **Quality Assurance with rift-verify and rift-lint**
+
+## Resources
+
 - [GitHub Repository](https://github.com/EtaCassiopeia/rift)
 - [Documentation](https://etacassiopeia.github.io/rift/)
 - [Examples](https://github.com/EtaCassiopeia/rift/tree/master/examples)
 
----
+Rift is open source under the Apache 2.0 license.
 
-*Have you tried Rift? I'd love to hear about your experience. Drop a comment below or star the repo on GitHub!*
+---
 
 *Next up: Getting Started with Rift in 5 Minutes — a hands-on guide to creating your first mock services.*
 
 ---
 
-**Tags:** #APITesting #Mountebank #Rust #MockServer #ServiceVirtualization #Testing #DevOps #Performance
+**Tags:** #APITesting #MockServer #ServiceVirtualization #Testing #DevOps #Rust #ChaosEngineering

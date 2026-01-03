@@ -9,7 +9,7 @@ Rift is a high-performance, Mountebank-compatible mock server written in Rust. I
 
 ## Article Series
 
-1. [Introducing Rift](posts/01-introducing-rift) - The Blazing-Fast Mountebank Alternative
+1. [Introducing Rift](posts/01-introducing-rift) - High-Performance API Mocking for Modern Development
 2. [Getting Started](posts/02-getting-started) - Your First Mock Server in 5 Minutes
 3. [Migration Guide](posts/03-migration-guide) - Seamless Transition from Mountebank
 4. [Advanced Predicates](posts/04-advanced-predicates) - Mastering Request Matching
