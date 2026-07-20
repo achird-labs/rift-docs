@@ -405,7 +405,7 @@ diff staging-fixtures.json prod-fixtures.json
 
 ```bash
 # Record once
-docker run -v $(pwd):/data ghcr.io/etacassiopeia/rift-proxy \
+docker run -v $(pwd):/data zainalpour/rift-proxy \
   --configfile /data/proxy-config.json
 
 # (run tests to record)
@@ -414,7 +414,7 @@ docker run -v $(pwd):/data ghcr.io/etacassiopeia/rift-proxy \
 curl http://localhost:2525/imposters/4545?replayable=true > fixtures.json
 
 # Develop offline forever
-docker run -v $(pwd):/data ghcr.io/etacassiopeia/rift-proxy \
+docker run -v $(pwd):/data zainalpour/rift-proxy \
   --configfile /data/fixtures.json
 ```
 
@@ -431,7 +431,7 @@ jobs:
         run: |
           docker run -d -p 2525:2525 -p 4545:4545 \
             -v ${{ github.workspace }}/fixtures:/fixtures \
-            ghcr.io/etacassiopeia/rift-proxy \
+            zainalpour/rift-proxy \
             --configfile /fixtures/api-mocks.json
 
       - name: Run tests

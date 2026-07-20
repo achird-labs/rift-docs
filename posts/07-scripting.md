@@ -34,7 +34,7 @@ Rhai is always available. For Lua and JavaScript:
 cargo build --release --features "lua javascript"
 
 # Or with Docker (pre-built with all engines)
-docker pull ghcr.io/etacassiopeia/rift-proxy:latest
+docker pull zainalpour/rift-proxy:latest
 ```
 
 ## Rhai: The Default Choice

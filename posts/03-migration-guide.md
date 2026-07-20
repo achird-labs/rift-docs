@@ -26,7 +26,7 @@ docker run -p 2525:2525 mountebank/mountebank:2.9.1
 
 **After (Rift):**
 ```bash
-docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -p 2525:2525 zainalpour/rift-proxy:latest
 ```
 
 That's it. Your existing `imposters.json` files work without modification.
@@ -50,7 +50,7 @@ services:
 ```yaml
 services:
   rift:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "2525:2525"
       - "4545:4545"
@@ -71,7 +71,7 @@ jobs:
   test:
     services:
       rift:
-        image: ghcr.io/etacassiopeia/rift-proxy:latest
+        image: zainalpour/rift-proxy:latest
         ports:
           - 2525:2525
 ```
@@ -115,7 +115,7 @@ Rift includes a verification tool that tests your imposters automatically:
 # Start Rift with your config
 docker run -d -p 2525:2525 -p 4545:4545 \
   -v $(pwd)/imposters.json:/imposters.json \
-  ghcr.io/etacassiopeia/rift-proxy:latest \
+  zainalpour/rift-proxy:latest \
   --configfile /imposters.json
 
 # Run verification
@@ -177,7 +177,7 @@ spec:
     spec:
       containers:
         - name: rift
-          image: ghcr.io/etacassiopeia/rift-proxy:latest
+          image: zainalpour/rift-proxy:latest
           ports:
             - containerPort: 2525
           resources:
@@ -258,7 +258,7 @@ Rift currently supports HTTP/HTTPS. TCP and SMTP protocols are planned.
 ```yaml
 services:
   rift:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "2525:2525"
       - "4545-4555:4545-4555"  # HTTP mocks
@@ -282,7 +282,7 @@ time docker run mountebank/mountebank --configfile imposters.json
 # ~3-5 seconds
 
 # Rift with 10 imposters
-time docker run ghcr.io/etacassiopeia/rift-proxy --configfile imposters.json
+time docker run zainalpour/rift-proxy --configfile imposters.json
 # ~0.5 seconds
 ```
 
@@ -333,7 +333,7 @@ During transition, run both in parallel:
 ```yaml
 services:
   rift:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "2525:2525"
     environment:
@@ -362,7 +362,7 @@ Route traffic based on test suite or feature flag.
 
 Encountering issues? Here's where to get help:
 
-1. **Documentation**: [etacassiopeia.github.io/rift](https://etacassiopeia.github.io/rift/)
+1. **Documentation**: [achird-labs.github.io/rift](https://achird-labs.github.io/rift/)
 2. **GitHub Issues**: Report bugs or compatibility issues
 3. **Examples**: Check the examples directory for patterns
 

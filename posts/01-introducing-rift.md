@@ -44,7 +44,7 @@ Rift creates **imposters** — fake HTTP services that respond exactly how you c
 
 ```bash
 # Start Rift
-docker run -p 2525:2525 -p 4545:4545 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -p 2525:2525 -p 4545:4545 zainalpour/rift-proxy:latest
 
 # Create a mock payment API
 curl -X POST http://localhost:2525/imposters -H "Content-Type: application/json" -d '{
@@ -177,7 +177,7 @@ If you're already using [Mountebank](http://www.mbtest.org/), Rift is a drop-in 
 docker run -p 2525:2525 mountebank/mountebank
 
 # With this
-docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -p 2525:2525 zainalpour/rift-proxy:latest
 ```
 
 Your existing `imposters.json` files work unchanged. Rift implements the complete Mountebank API, so your test code doesn't need modifications.
@@ -189,13 +189,13 @@ Benchmarks show Rift is **20-250x faster** than Mountebank depending on the work
 ### Docker (Recommended)
 
 ```bash
-docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -p 2525:2525 zainalpour/rift-proxy:latest
 ```
 
 ### Homebrew (macOS)
 
 ```bash
-brew tap etacassiopeia/rift
+brew tap achird-labs/rift
 brew install rift
 ```
 
@@ -215,7 +215,7 @@ npm install @rift-vs/rift
 
 ```bash
 # 1. Start Rift
-docker run -d -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -d -p 2525:2525 zainalpour/rift-proxy:latest
 
 # 2. Create a mock API
 curl -X POST http://localhost:2525/imposters -H "Content-Type: application/json" -d '{
@@ -271,9 +271,9 @@ This is the first post in a comprehensive series:
 
 ## Resources
 
-- [GitHub Repository](https://github.com/EtaCassiopeia/rift)
-- [Documentation](https://etacassiopeia.github.io/rift/)
-- [Examples](https://github.com/EtaCassiopeia/rift/tree/master/examples)
+- [GitHub Repository](https://github.com/achird-labs/rift)
+- [Documentation](https://achird-labs.github.io/rift/)
+- [Examples](https://github.com/achird-labs/rift/tree/master/examples)
 
 Rift is open source under the Apache 2.0 license.
 
