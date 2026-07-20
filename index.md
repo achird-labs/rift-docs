@@ -24,10 +24,10 @@ Rift is a high-performance, Mountebank-compatible mock server written in Rust. I
 
 ```bash
 # Using Docker
-docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -p 2525:2525 zainalpour/rift-proxy:latest
 
 # Using Homebrew (macOS)
-brew install etacassiopeia/tap/rift
+brew install achird-labs/rift/rift
 
 # Using Cargo
 cargo install rift-http-proxy
@@ -35,6 +35,6 @@ cargo install rift-http-proxy
 
 ## Resources
 
-- [GitHub Repository](https://github.com/EtaCassiopeia/rift)
-- [API Documentation](https://etacassiopeia.github.io/rift/)
+- [GitHub Repository](https://github.com/achird-labs/rift)
+- [API Documentation](https://achird-labs.github.io/rift/)
 - [npm Package](https://www.npmjs.com/package/@rift-vs/rift)

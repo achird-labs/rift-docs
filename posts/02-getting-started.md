@@ -26,14 +26,14 @@ Let's go!
 The fastest way to get started:
 
 ```bash
-docker pull ghcr.io/etacassiopeia/rift-proxy:latest
-docker run -p 2525:2525 -p 4545:4545 ghcr.io/etacassiopeia/rift-proxy:latest
+docker pull zainalpour/rift-proxy:latest
+docker run -p 2525:2525 -p 4545:4545 zainalpour/rift-proxy:latest
 ```
 
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap etacassiopeia/rift
+brew tap achird-labs/rift
 brew install rift
 rift-http-proxy
 ```
@@ -267,7 +267,7 @@ Load it:
 # Docker
 docker run -p 2525:2525 -p 4545:4545 -p 4546:4546 \
   -v $(pwd)/imposters.json:/imposters.json \
-  ghcr.io/etacassiopeia/rift-proxy:latest \
+  zainalpour/rift-proxy:latest \
   --configfile /imposters.json
 
 # Binary
@@ -431,7 +431,7 @@ describe('User API', () => {
 
 | Action | Command |
 |--------|---------|
-| Start Rift | `docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest` |
+| Start Rift | `docker run -p 2525:2525 zainalpour/rift-proxy:latest` |
 | Create imposter | `POST http://localhost:2525/imposters` |
 | List imposters | `GET http://localhost:2525/imposters` |
 | Get imposter | `GET http://localhost:2525/imposters/:port` |
@@ -443,9 +443,9 @@ describe('User API', () => {
 You now have the fundamentals of Rift. In the next post, we'll cover **migrating from Mountebank to Rift** — a zero-friction guide for teams already using Mountebank.
 
 **Resources:**
-- [GitHub Repository](https://github.com/EtaCassiopeia/rift)
-- [Documentation](https://etacassiopeia.github.io/rift/)
-- [More Examples](https://github.com/EtaCassiopeia/rift/tree/master/examples)
+- [GitHub Repository](https://github.com/achird-labs/rift)
+- [Documentation](https://achird-labs.github.io/rift/)
+- [More Examples](https://github.com/achird-labs/rift/tree/master/examples)
 
 ---
 

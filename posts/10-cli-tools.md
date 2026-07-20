@@ -139,7 +139,7 @@ jobs:
 
       - name: Install rift-lint
         run: |
-          curl -L https://github.com/EtaCassiopeia/rift/releases/latest/download/rift-lint-linux-x64.tar.gz | tar xz
+          curl -L https://github.com/achird-labs/rift/releases/latest/download/rift-lint-linux-x64.tar.gz | tar xz
           sudo mv rift-lint /usr/local/bin/
 
       - name: Lint configurations
@@ -284,7 +284,7 @@ rift-verify --timeout 30
     # Start Rift
     docker run -d -p 2525:2525 -p 4545:4545 \
       -v ${{ github.workspace }}/fixtures:/fixtures \
-      ghcr.io/etacassiopeia/rift-proxy:latest \
+      zainalpour/rift-proxy:latest \
       --configfile /fixtures/mocks.json
 
     # Wait for startup
@@ -294,7 +294,7 @@ rift-verify --timeout 30
     rift-verify --admin-url http://localhost:2525
 
     # Cleanup
-    docker stop $(docker ps -q --filter ancestor=ghcr.io/etacassiopeia/rift-proxy)
+    docker stop $(docker ps -q --filter ancestor=zainalpour/rift-proxy)
 ```
 
 ## rift-tui: Interactive Management
@@ -399,12 +399,12 @@ echo "✓ All validations passed!"
 # Lint
 docker run --rm \
   -v $(pwd)/fixtures:/fixtures \
-  ghcr.io/etacassiopeia/rift-lint /fixtures --strict
+  zainalpour/rift-lint /fixtures --strict
 
 # Verify
 docker run -d --name rift -p 2525:2525 \
   -v $(pwd)/fixtures:/fixtures \
-  ghcr.io/etacassiopeia/rift-proxy:latest \
+  zainalpour/rift-proxy:latest \
   --configfile /fixtures/all.json
 
 sleep 2
@@ -501,10 +501,10 @@ We've covered everything you need to be productive with Rift:
 
 ```bash
 # Try Rift
-docker run -p 2525:2525 ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -p 2525:2525 zainalpour/rift-proxy:latest
 
 # Star the repo
-# https://github.com/EtaCassiopeia/rift
+# https://github.com/achird-labs/rift
 ```
 
 ---

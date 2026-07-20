@@ -23,7 +23,7 @@ Let's make your mocks production-ready.
 
 ```bash
 docker run -p 2525:2525 -p 4545-4555:4545-4555 \
-  ghcr.io/etacassiopeia/rift-proxy:latest
+  zainalpour/rift-proxy:latest
 ```
 
 ### With Configuration File
@@ -31,7 +31,7 @@ docker run -p 2525:2525 -p 4545-4555:4545-4555 \
 ```bash
 docker run -p 2525:2525 -p 4545:4545 \
   -v $(pwd)/imposters.json:/imposters.json \
-  ghcr.io/etacassiopeia/rift-proxy:latest \
+  zainalpour/rift-proxy:latest \
   --configfile /imposters.json
 ```
 
@@ -43,7 +43,7 @@ version: '3.8'
 
 services:
   rift:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "2525:2525"      # Admin API
       - "4545-4555:4545-4555"  # Imposter ports
@@ -72,7 +72,7 @@ version: '3.8'
 
 services:
   user-service-mock:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "4545:4545"
     volumes:
@@ -80,7 +80,7 @@ services:
     command: --configfile /config.json
 
   order-service-mock:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "4546:4546"
     volumes:
@@ -88,7 +88,7 @@ services:
     command: --configfile /config.json
 
   payment-service-mock:
-    image: ghcr.io/etacassiopeia/rift-proxy:latest
+    image: zainalpour/rift-proxy:latest
     ports:
       - "4547:4547"
     volumes:
@@ -132,7 +132,7 @@ spec:
     spec:
       containers:
         - name: rift
-          image: ghcr.io/etacassiopeia/rift-proxy:latest
+          image: zainalpour/rift-proxy:latest
           ports:
             - containerPort: 2525
               name: admin
@@ -220,7 +220,7 @@ spec:
     spec:
       containers:
         - name: rift
-          image: ghcr.io/etacassiopeia/rift-proxy:latest
+          image: zainalpour/rift-proxy:latest
           # ... other config ...
 ---
 apiVersion: apps/v1
@@ -304,7 +304,7 @@ jobs:
 
     services:
       rift:
-        image: ghcr.io/etacassiopeia/rift-proxy:latest
+        image: zainalpour/rift-proxy:latest
         ports:
           - 2525:2525
           - 4545:4545
@@ -341,7 +341,7 @@ jobs:
 test:
   image: node:20
   services:
-    - name: ghcr.io/etacassiopeia/rift-proxy:latest
+    - name: zainalpour/rift-proxy:latest
       alias: rift
   variables:
     API_URL: http://rift:4545
@@ -375,7 +375,7 @@ pipeline {
                     docker run -d --name rift-mocks \
                         -p 2525:2525 -p 4545:4545 \
                         -v ${WORKSPACE}/fixtures:/fixtures \
-                        ghcr.io/etacassiopeia/rift-proxy:latest \
+                        zainalpour/rift-proxy:latest \
                         --configfile /fixtures/mocks.json
 
                     # Wait for startup
@@ -465,7 +465,7 @@ data:
 
 ```bash
 # Set log level
-docker run -e RUST_LOG=debug ghcr.io/etacassiopeia/rift-proxy:latest
+docker run -e RUST_LOG=debug zainalpour/rift-proxy:latest
 
 # Log levels: error, warn, info, debug, trace
 ```
@@ -473,7 +473,7 @@ docker run -e RUST_LOG=debug ghcr.io/etacassiopeia/rift-proxy:latest
 Structured JSON logging:
 
 ```bash
-docker run -e RUST_LOG=info ghcr.io/etacassiopeia/rift-proxy:latest 2>&1 | jq
+docker run -e RUST_LOG=info zainalpour/rift-proxy:latest 2>&1 | jq
 ```
 
 ## Configuration Validation
@@ -496,13 +496,13 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}/fixtures:/fixtures \
-            ghcr.io/etacassiopeia/rift-lint /fixtures --strict
+            zainalpour/rift-lint /fixtures --strict
 
       - name: Validate configuration loads
         run: |
           docker run --rm \
             -v ${{ github.workspace }}/fixtures:/fixtures \
-            ghcr.io/etacassiopeia/rift-proxy:latest \
+            zainalpour/rift-proxy:latest \
             --configfile /fixtures/mocks.json --dry-run
 ```
 
@@ -566,7 +566,7 @@ spec:
 
 ```bash
 # Don't use --allow-injection in shared environments
-docker run ghcr.io/etacassiopeia/rift-proxy:latest \
+docker run zainalpour/rift-proxy:latest \
   --configfile /config.json
   # No --allow-injection flag
 ```
