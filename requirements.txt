@@ -3,3 +3,7 @@ mkdocs==1.6.1
 mkdocs-material==9.7.7
 mkdocs-redirects==1.2.3
 pymdown-extensions==11.0.1
+
+# Used directly by scripts/validate_frontmatter.py. It also arrives transitively via
+# mkdocs; pinned here so the gates do not depend on a transitive dependency staying put.
+PyYAML==6.0.2

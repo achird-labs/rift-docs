@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Docs gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Both gates carry a --self-test that proves they still reject what they exist to
+      # reject. A validator that has silently stopped validating passes every other step
+      # in this job, so it is checked first and explicitly.
+      - name: Self-test the gates
+        run: |
+          python scripts/validate_frontmatter.py --self-test
+          python scripts/check-links.py --self-test
+
+      - name: Validate front matter
+        run: python scripts/validate_frontmatter.py
+
+      - name: Build site
+        run: mkdocs build --strict
+
+      # Against the built output, never the sources — see the header of check-links.py.
+      - name: Check internal links
+        run: python scripts/check-links.py site
