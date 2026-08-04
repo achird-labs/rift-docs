@@ -23,7 +23,9 @@ docs_dir: docs
 #   Start      #6 #7 #11 #12      Concepts   #9 #10
 #   Run        #8 #13 #14 #15     Embed      #8 #16 #17 #18 #19
 #   Guides     #20 #21            Reference  #22 #23 #24
-#   Compare    #25                Meta       #5
+#   Compare    #25
+#
+# Meta landed in #5.
 #
 nav:
   - Home: index.md
@@ -38,6 +40,11 @@ nav:
       - Proxy mode: articles/08-proxy-mode.md
       - Production deployment: articles/09-production-deployment.md
       - CLI tools: articles/10-cli-tools.md
+  - Meta:
+      - How these docs work: meta/how-these-docs-work.md
+      - Style guide: meta/style-guide.md
+      - Sync policy & drift budget: meta/sync-policy.md
+      - Contributing: meta/contributing.md
 
 theme:
   name: material
