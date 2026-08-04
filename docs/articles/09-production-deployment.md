@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Production-Ready Mocking: Docker, Kubernetes, and CI/CD'
+description: 'Deploy mock services like a pro.'
+audience: [operator]
+deployment_mode: [container]
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Production-Ready Mocking: Docker, Kubernetes, and CI/CD

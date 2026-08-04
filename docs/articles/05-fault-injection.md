@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Chaos Engineering Made Easy: Fault Injection with Rift'
+description: 'Test your application''s resilience without deploying to production.'
+audience: [developer]
+deployment_mode: []
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Chaos Engineering Made Easy: Fault Injection with Rift

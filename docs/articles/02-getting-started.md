@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Getting Started with Rift in 5 Minutes'
+description: 'From zero to mock server: a hands-on guide to creating your first API mocks.'
+audience: [developer]
+deployment_mode: [process, container]
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Getting Started with Rift in 5 Minutes

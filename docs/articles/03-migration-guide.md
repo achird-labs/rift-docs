@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Migrating from Mountebank to Rift: A Zero-Friction Guide'
+description: 'Switch to 20-250x better performance without changing a single line of configuration.'
+audience: [developer, evaluator]
+deployment_mode: [container]
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Migrating from Mountebank to Rift: A Zero-Friction Guide

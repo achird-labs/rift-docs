@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Dynamic Responses with Multi-Engine Scripting'
+description: 'Choose your language: Rhai, Lua, or JavaScript.'
+audience: [developer]
+deployment_mode: []
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Dynamic Responses with Multi-Engine Scripting

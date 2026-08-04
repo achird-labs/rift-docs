@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Building Stateful Mock Services with Flow State'
+description: 'From simple stubs to complex multi-step test scenarios.'
+audience: [developer]
+deployment_mode: []
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Building Stateful Mock Services with Flow State

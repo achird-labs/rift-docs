@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Mastering Request Matching with Rift Predicates'
+description: 'From simple path matching to complex JSONPath queries — the complete guide.'
+audience: [developer]
+deployment_mode: []
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Mastering Request Matching with Rift Predicates

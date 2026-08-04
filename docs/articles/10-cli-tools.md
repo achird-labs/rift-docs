@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Quality Assurance with rift-verify and rift-lint'
+description: 'Validate your mocks before they break your tests.'
+audience: [developer]
+deployment_mode: []
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Quality Assurance with rift-verify and rift-lint
