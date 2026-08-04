@@ -1,0 +1,44 @@
+# Each source repo, and the exact revision the hub's docs were last reconciled against.
+# Bump `pinned` ONLY in a PR that also updates the affected pages' `verified_against`.
+#
+# `id` is the vocabulary for two things and must not drift from either:
+#   - a page's `rift_component` front-matter value
+#   - the keys of a page's `verified_against` map
+# `scripts/validate_frontmatter.py` enforces both against this file.
+sources:
+  - id: rift
+    repo: achird-labs/rift
+    site: https://achird-labs.github.io/rift/
+    pinned: { release: v0.16.0, commit: 1e400ba3de1ab9fa8c6ff4a7422addaee33f7128, date: 2026-07-30 }
+    watch: [docs/, README.md, CHANGELOG.md]
+
+  - id: rift-cluster
+    repo: achird-labs/rift-cluster      # renamed from rift-enterprise 2026-08
+    site: null                          # → set when its Pages site goes live
+    private: true                       # → false after open-sourcing
+    pinned: { release: null, commit: 4911edc5abb5d45ec210c909f93115c34fbfc5f8, date: 2026-08-04 }
+    watch: [docs/architecture/, docs/rift-cluster-server.md, docs/api/, deploy/, README.md]
+
+  - id: rift-node
+    repo: achird-labs/rift-node
+    site: https://achird-labs.github.io/rift-node/
+    pinned: { release: v0.15.0, commit: 38680683f937f89e3dd6b23f4161e9f46cd9a756, date: 2026-07-21 }
+    watch: [docs/, README.md]
+
+  - id: rift-java
+    repo: achird-labs/rift-java
+    site: https://achird-labs.github.io/rift-java/
+    pinned: { release: v0.2.2, commit: 7fbed5f404b3254f8e8aec5743830ad4341f7d9e, date: 2026-07-30 }
+    watch: [docs/, README.md]
+
+  - id: rift-scala
+    repo: achird-labs/rift-scala
+    site: https://achird-labs.github.io/rift-scala/
+    pinned: { release: v0.1.3, commit: 237d16fb6ed1fa725a4fcfdcd37b228b4987d346, date: 2026-07-30 }
+    watch: [docs/, README.md]
+
+  - id: rift-go
+    repo: achird-labs/rift-go
+    site: https://achird-labs.github.io/rift-go/
+    pinned: { release: v0.1.0, commit: 5ab912a6fe2054e04e33ff27b07d1e4eda864a62, date: 2026-07-29 }
+    watch: [docs/, README.md]

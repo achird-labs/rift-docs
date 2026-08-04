@@ -34,8 +34,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # The same gates ci.yml runs. ci.yml's push-to-main job runs *concurrently* with
+      # this one and cannot block it, so without these a PR that somehow lands red would
+      # still deploy. A deploy is the one step that is visible to readers; it gets its
+      # own gate rather than trusting a sibling workflow's timing.
+      - name: Validate front matter
+        run: python scripts/validate_frontmatter.py
+
       - name: Build site
         run: mkdocs build --strict
+
+      - name: Check internal links
+        run: python scripts/check-links.py site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
