@@ -1,0 +1,133 @@
+site_name: Rift Documentation
+site_description: >-
+  The documentation hub for Rift — a high-performance, Mountebank-compatible
+  mock server, its SDKs, and RiftCluster.
+site_author: Achird Labs
+# ⚠️ Epic #2 §15 Q3 (custom domain) is still open. This keeps the currently
+# published origin, so no canonical URL moves. The `rift:` JSON-LD namespace
+# (#26) inherits this and must not move once published — decide Q3 before #26.
+site_url: https://achird-labs.github.io/rift-docs/
+
+repo_name: achird-labs/rift-docs
+repo_url: https://github.com/achird-labs/rift-docs
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+# NAV = the §4 information-architecture contract in epic #2.
+#
+# Only sections whose pages exist are listed: `mkdocs build --strict` fails on a
+# nav entry pointing at a missing file, and epic #2 rules out placeholder pages.
+# Later issues add their own section as they land, in this order:
+#
+#   Start      #6 #7 #11 #12      Concepts   #9 #10
+#   Run        #8 #13 #14 #15     Embed      #8 #16 #17 #18 #19
+#   Guides     #20 #21            Reference  #22 #23 #24
+#   Compare    #25                Meta       #5
+#
+nav:
+  - Home: index.md
+  - Articles:
+      - Introducing Rift: articles/01-introducing-rift.md
+      - Getting started: articles/02-getting-started.md
+      - Migrating from Mountebank: articles/03-migration-guide.md
+      - Advanced predicates: articles/04-advanced-predicates.md
+      - Fault injection: articles/05-fault-injection.md
+      - Flow state: articles/06-flow-state.md
+      - Scripting: articles/07-scripting.md
+      - Proxy mode: articles/08-proxy-mode.md
+      - Production deployment: articles/09-production-deployment.md
+      - CLI tools: articles/10-cli-tools.md
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  # §11.4 — every legacy Jekyll URL stays live. These are public URLs; entries
+  # are only ever added here, never removed.
+  #
+  # These entries cover the trailing-slash form `/posts/<slug>/`.
+  #
+  # They are NOT the ones carrying the live legacy URLs. The articles lived in
+  # `posts/` as ordinary Jekyll pages (not `_posts/`) with no `permalink:`, so
+  # Jekyll published them at `posts/<slug>.html` — verified 200 on the live site,
+  # while `/posts/<slug>/` 404s there. With `use_directory_urls` (the default) a
+  # `.md` key here can only ever emit `posts/<slug>/index.html`, so the real
+  # legacy URLs are served by the checked-in static stubs in `docs/posts/*.html`
+  # instead (this plugin rejects non-markdown source keys, and the warning it
+  # raises fails `--strict`). Extensionless `/posts/<slug>` resolves via GitHub
+  # Pages' `.html` fallback.
+  - redirects:
+      redirect_maps:
+        posts/01-introducing-rift.md: articles/01-introducing-rift.md
+        posts/02-getting-started.md: articles/02-getting-started.md
+        posts/03-migration-guide.md: articles/03-migration-guide.md
+        posts/04-advanced-predicates.md: articles/04-advanced-predicates.md
+        posts/05-fault-injection.md: articles/05-fault-injection.md
+        posts/06-flow-state.md: articles/06-flow-state.md
+        posts/07-scripting.md: articles/07-scripting.md
+        posts/08-proxy-mode.md: articles/08-proxy-mode.md
+        posts/09-production-deployment.md: articles/09-production-deployment.md
+        posts/10-cli-tools.md: articles/10-cli-tools.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/achird-labs/rift
+      name: Rift on GitHub
+
+# `--strict` should fail the build on anything that would ship a broken page.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

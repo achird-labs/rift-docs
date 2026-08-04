@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Recording and Replaying API Traffic with Proxy Mode'
+description: 'Create mocks from real API behavior automatically.'
+audience: [developer]
+deployment_mode: [container]
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Recording and Replaying API Traffic with Proxy Mode

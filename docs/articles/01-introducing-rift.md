@@ -1,6 +1,12 @@
 ---
-layout: default
 title: 'Introducing Rift: High-Performance API Mocking for Modern Development'
+description: 'A blazing-fast mock server for testing microservices, simulating APIs, and chaos engineering.'
+audience: [evaluator]
+deployment_mode: []
+language: [any]
+rift_component: docs
+tier: 1
+status: stable
 ---
 
 # Introducing Rift: High-Performance API Mocking for Modern Development
