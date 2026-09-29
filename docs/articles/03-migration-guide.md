@@ -124,10 +124,7 @@ docker run -d -p 2525:2525 -p 4545:4545 \
   zainalpour/rift-proxy:latest \
   --configfile /imposters.json
 
-# Run verification
-docker run --network host ghcr.io/etacassiopeia/rift-verify
-
-# Or if installed locally
+# Run verification (rift-verify ships with the Homebrew formula and the release archives)
 rift-verify --admin-url http://localhost:2525
 ```
 
@@ -240,7 +237,7 @@ Mountebank supports EJS templates in config files. Rift currently processes thes
 ```bash
 # Use envsubst
 envsubst < imposters.template.json > imposters.json
-rift-http-proxy --configfile imposters.json
+rift --configfile imposters.json
 ```
 
 ### Issue 2: File Includes

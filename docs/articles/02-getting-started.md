@@ -41,7 +41,7 @@ docker run -p 2525:2525 -p 4545:4545 zainalpour/rift-proxy:latest
 ```bash
 brew tap achird-labs/rift
 brew install rift
-rift-http-proxy
+rift
 ```
 
 ### npm (Node.js Projects)
@@ -62,7 +62,7 @@ await server.close();
 
 ```bash
 cargo install rift-http-proxy
-rift-http-proxy
+rift-http-proxy   # cargo names the binary after the crate; every other install calls it `rift`
 ```
 
 ## Understanding the Architecture
@@ -277,7 +277,7 @@ docker run -p 2525:2525 -p 4545:4545 -p 4546:4546 \
   --configfile /imposters.json
 
 # Binary
-rift-http-proxy --configfile imposters.json
+rift --configfile imposters.json
 ```
 
 ## Response Cycling

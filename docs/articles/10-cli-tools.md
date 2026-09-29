@@ -1,12 +1,21 @@
 ---
 title: 'Quality Assurance with rift-verify and rift-lint'
-description: 'Validate your mocks before they break your tests.'
+description: 'Validate imposter files with rift-lint and exercise a running server with rift-verify, locally and in CI.'
 audience: [developer]
 deployment_mode: []
 language: [any]
 rift_component: docs
 tier: 1
 status: stable
+upstream:
+  - repo: achird-labs/rift
+    paths:
+      - docs/features/linting.md
+      - docs/configuration/cli.md
+      - crates/rift-http-proxy/src/bin/README.md
+      - README.md
+verified_against:
+  rift: v0.18.1
 ---
 
 # Quality Assurance with rift-verify and rift-lint
@@ -15,13 +24,19 @@ status: stable
 
 ---
 
+This article is for developers who keep imposter files in a repository and want them checked before
+a test run depends on them. By the end you will lint those files, verify a running server's stubs,
+and run both in CI.
+
 You've built complex mock configurations. But how do you know they work correctly? How do you catch issues before they cause test failures?
 
-Rift includes two powerful CLI tools:
-- **rift-lint**: Validate configurations before loading
-- **rift-verify**: Test imposters by generating requests
+Rift ships two CLI tools for this, alongside the `rift` server:
 
-Let's explore how to use them effectively.
+- **rift-lint**: validates configuration files before they are loaded
+- **rift-verify**: sends a request to every stub of a running server and checks the response
+
+Both are included in the Homebrew formula (`brew install achird-labs/rift/rift`) and the release
+archives. `rift-lint` also has its own Docker image, `zainalpour/rift-lint`; `rift-verify` has none.
 
 ## rift-lint: Configuration Validation
 
@@ -39,57 +54,48 @@ rift-lint ./imposters/ --strict
 ```
 
 `rift-lint` reads the same formats `--configfile` does — JSON (`.json`) and YAML (`.yaml`, `.yml`) —
-and scans a directory one level deep, not recursively.
+and scans a directory one level deep, not recursively. It exits non-zero when it finds an error, or
+a warning under `--strict`.
 
 ### What It Checks
 
-**Errors (prevent loading):**
-- Files that cannot be read or are not valid JSON or YAML
-- Missing required fields (`port`, `protocol`, `stubs`)
-- Port conflicts — the same port declared twice, inside one file or across files in the directory
-  (`E002`)
-- Invalid predicate structures
-- Malformed behaviors
-
-**Warnings (potential issues):**
-- Privileged ports
-- A body that is not JSON under a JSON `Content-Type`
-- Unknown proxy modes and potentially dangerous `shellTransform` commands
-- Keys the engine parses but does not act on (`W017`)
-- A `behaviors` array element that sets several behaviors, so they run in a fixed order rather than
-  the order written (`W018`)
+Errors are problems Rift refuses or cannot serve correctly — for example a port declared twice
+across the directory (`E002`), a stub with no `responses` (`E006`), an unknown predicate operator
+(`E009`), or a header value that is a number or boolean instead of a string (`E019`, `E020`).
+Warnings flag configurations that load but probably don't do what you meant — for example a stub
+that uses state with no `_rift.flowState` configured (`W014`). The
+[linting reference](https://achird-labs.github.io/rift/features/linting/) lists every code.
 
 ### Example Output
+
+Two files that share a port, with a typo'd predicate and a numeric header:
 
 ```
 Rift Imposter Linter
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scanning: .
+Found:    2 imposter file(s)
 
-Scanning: ./imposters/
-Found:    5 imposter file(s)
+
+FAIL order-service.json (2 error(s))
+  | [port] error: Port 4545 is used by 2 imposters: order-service.json, user-service.json (E002)
+  |   -> Assign unique ports to each imposter. Consider using ports 4546+
+  | [stubs[0]] error: Stub missing 'responses' field (E006)
 
 FAIL user-service.json (3 error(s))
-  | [stubs[0].responses[0].is.headers.X-Count] ERROR: Header 'X-Count' value is a number, must be a string (E019)
+  | [stubs[0].predicates[0]] error: Unknown predicate operator: eqauls (E009)
+  |   -> Use one of: equals, deepEquals, contains, startsWith, endsWith, matches, exists, not, or, and, inject
+  | [stubs[0].predicates[0]] error: Predicate has no operator (E008)
+  |   -> Add one of: equals, deepEquals, contains, startsWith, endsWith, matches, exists, not, or, and, inject
+  | [stubs[0].responses[0].is.headers.X-Count] error: Header 'X-Count' value is a number, must be a string (E019)
   |   -> Change to: "X-Count": "123"
-  | [stubs[1].predicates[0]] ERROR: Unknown predicate operator: eqauls (E009)
-  |   -> Use one of: equals, deepEquals, contains, ...
-  | [port] ERROR: Port 4545 is used by 2 imposters: user-service.json, order-service.json (E002)
-  |   -> Assign unique ports to each imposter. Consider using ports 4546+
-
-WARN order-service.json (1 warning(s))
-  | [stubs[0]] WARNING: Stub has no responses defined (W002)
-  |   -> Add at least one response
-
-PASS payment-service.json
-PASS auth-service.json
-PASS config-service.json
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Summary
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Files checked: 5
-  Errors:    3
-  Warnings:  1
+  Files checked: 2
+  Errors:    5
+  Warnings:  0
 
 Linting failed with errors
 ```
@@ -102,14 +108,8 @@ Some issues can be fixed automatically:
 rift-lint ./imposters/ --fix
 ```
 
-`--fix` corrects value shapes in `is.headers` (the `E018`, `E019` and `E020` findings):
-- A number → the same number as a string
-- A boolean → the same boolean as a string
-- An array containing a non-string element → each element quoted in place (a string-only array is
-  already legal and is left alone)
-
-It rewrites JSON files only; a YAML file, a templated file, or a file that repeats a key is reported
-but never rewritten.
+`--fix` rewrites header values of the wrong type as strings — `123` becomes `"123"`, `true` becomes
+`"true"` — in JSON files. Everything else it reports but leaves for you to fix.
 
 ### JSON Output for CI
 
@@ -117,21 +117,23 @@ but never rewritten.
 rift-lint ./imposters/ --output json
 ```
 
+The banner goes to stderr, so stdout is a single JSON document:
+
 ```json
 {
-  "files_checked": 5,
-  "errors": 3,
-  "warnings": 1,
   "issues": [
     {
       "severity": "error",
       "code": "E019",
       "message": "Header 'X-Count' value is a number, must be a string",
-      "file": "user-service.json",
+      "file": "./user-service.json",
       "location": "stubs[0].responses[0].is.headers.X-Count",
       "suggestion": "Change to: \"X-Count\": \"123\""
     }
-  ]
+  ],
+  "files_checked": 2,
+  "errors": 5,
+  "warnings": 0
 }
 ```
 
@@ -162,127 +164,162 @@ jobs:
           path: lint-results.json
 ```
 
+### Checking Scripts
+
+`rift-lint` checks a config's structure. To check the scripts inside it, use
+`rift script check` — see [Scripting](07-scripting.md#testing-scripts-without-a-server).
+
 ## rift-verify: Stub Verification
 
 ### What It Does
 
 rift-verify:
-1. Fetches all imposters from a running Rift server
-2. Analyzes predicates to generate matching requests
-3. Makes requests and verifies responses
-4. Reports any mismatches
+
+1. Fetches every imposter from a running Rift server's admin API
+2. Builds a request from each stub's predicates
+3. Sends it and compares the response with the stub's first response
+4. Reports mismatches and exits non-zero if any test failed
 
 ### Basic Usage
 
 ```bash
-# Verify all imposters
+# Verify every imposter on http://localhost:2525
 rift-verify
 
-# Verify specific imposter
+# A different admin URL
+rift-verify --admin-url http://localhost:3525
+
+# One imposter
 rift-verify --port 4545
 
-# Show curl commands for each test
-rift-verify --show-curl
-
-# Verbose output
-rift-verify --verbose
+# Print a curl command for each test, and every result rather than only failures
+rift-verify --show-curl --verbose
 ```
 
 ### Example Output
 
+This server has two imposters. In the Order Service, `GET /orders` answers `200`, and a second stub
+catches every other `/orders` path with `404`:
+
+```json
+{
+  "port": 4546,
+  "protocol": "http",
+  "name": "Order Service",
+  "stubs": [
+    {
+      "predicates": [{ "equals": { "method": "GET", "path": "/orders" } }],
+      "responses": [{ "is": { "statusCode": 200, "body": "[]" } }]
+    },
+    {
+      "predicates": [{ "startsWith": { "path": "/orders" } }],
+      "responses": [{ "is": { "statusCode": 404 } }]
+    }
+  ]
+}
+```
+
 ```
 Rift Stub Verifier
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 Admin URL: http://localhost:2525
-Found: 3 imposters
 
-Imposter :4545 (User Service)
+Imposter: User Service (port 4545)
+
+Imposter: Order Service (port 4546)
+   FAIL Stub #1 - GET /orders
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✓ GET /health → 200 OK
-  ✓ GET /users → 200 OK (12 items)
-  ✓ POST /users → 201 Created
-  ✗ DELETE /users/123 → Expected 204, got 404
-
-  curl -X DELETE http://localhost:4545/users/123
-
-Imposter :4546 (Order Service)
+Verification Summary
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✓ GET /orders → 200 OK
-  ✓ POST /orders → 201 Created
-  ~ SKIP GET /orders/{id} → Dynamic predicate (matches)
+  Imposters:  2
+  Stubs:      6
+  Tests:      6
 
-Imposter :4547 (Payment Service)
+  Passed:  5
+  Failed:  1
+  Skipped: 0
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✓ POST /payments → 200 OK
-  ✓ GET /payments/status → 200 OK
-
-Summary
+Failure Details
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Total: 9 stubs
-  Passed: 7
-  Failed: 1
-  Skipped: 1
 
-Verification failed
+1. Imposter :4546 (Order Service) - Stub #1
+   Request:  GET /orders
+   Expected: status=404, body=None
+   Actual:   status=200, body=Some("[]")
+
+   Why it failed:
+   - Status mismatch: expected 404, got 200
+     Hint: Expected status 404 but got 200. Verify the stub response configuration.
+
+1 test(s) failed. See details above.
 ```
 
-### Show Curl Commands
+The failure is real, and it is the kind of bug rift-verify exists to find: the request generated
+for stub #1 (`GET /orders`) is caught by stub #0 first, so stub #1 never answers that path. Stubs
+match in order.
+
+### Dynamic Stubs
+
+A stub whose response is computed — `inject`, `proxy`, `_rift.script`, or a stub that cycles
+through several responses — has no single expected answer. **By default rift-verify tests these
+anyway** and expects a `200`, so a script that deliberately answers `418` is reported as a failure.
+Skip them:
 
 ```bash
-rift-verify --show-curl
-```
-
-Output includes ready-to-use curl commands:
-
-```
-✗ DELETE /users/123 → Expected 204, got 404
-
-  Reproduce with:
-  curl -X DELETE http://localhost:4545/users/123 \
-    -H "Content-Type: application/json"
-```
-
-### Skip Dynamic Stubs
-
-Some stubs can't be verified automatically (inject, proxy, complex scripts):
-
-```bash
-# Skip stubs with dynamic responses
 rift-verify --skip-dynamic
+```
+
+Or check only status codes, ignoring bodies and headers:
+
+```bash
+rift-verify --status-only
 ```
 
 ### Dry Run Mode
 
-See what would be tested without making requests:
+List what would be tested without sending any requests:
 
 ```bash
 rift-verify --dry-run
 ```
 
 ```
-Dry Run - Would test:
-  :4545 GET /health
-  :4545 GET /users
-  :4545 POST /users
-  :4545 DELETE /users/123
-  :4546 GET /orders
-  ...
+Imposter: User Service (port 4545)
+   DRY-RUN Stub #0 - GET /health
+   DRY-RUN Stub #1 - GET /users
+   DRY-RUN Stub #2 - POST /users
+   DRY-RUN Stub #3 - GET /users/1
+
+Imposter: Order Service (port 4546)
+   DRY-RUN Stub #0 - GET /orders
+   DRY-RUN Stub #1 - GET /orders
 ```
 
-### Status-Only Mode
-
-Only verify status codes (useful for cycling responses):
+### JSON Output and Timeouts
 
 ```bash
-rift-verify --status-only
-```
+# Machine-readable summary on stdout; progress goes to stderr
+rift-verify --output json
 
-### Custom Timeout
-
-```bash
+# Per-request timeout in seconds (default 10)
 rift-verify --timeout 30
 ```
+
+```json
+{
+  "failed": 1,
+  "imposters": 2,
+  "passed": 5,
+  "skipped": 0,
+  "stubs": 6,
+  "tests": 6
+}
+```
+
+`rift-verify --help` lists the rest, including `--gateway` for servers reached through the
+single-port gateway and `--insecure` for HTTPS imposters with self-signed certificates.
 
 ### CI Integration
 
@@ -291,71 +328,32 @@ rift-verify --timeout 30
 - name: Verify mock stubs
   run: |
     # Start Rift
-    docker run -d -p 2525:2525 -p 4545:4545 \
+    docker run -d --name rift -p 2525:2525 -p 4545:4545 \
       -v ${{ github.workspace }}/fixtures:/fixtures \
       zainalpour/rift-proxy:latest \
       --configfile /fixtures/mocks.json
 
-    # Wait for startup
-    sleep 3
+    # Wait until the admin API answers
+    until curl -sf http://localhost:2525/ > /dev/null; do sleep 0.5; done
 
-    # Verify
+    # Verify (rift-verify must be installed on the runner)
     rift-verify --admin-url http://localhost:2525
 
     # Cleanup
-    docker stop $(docker ps -q --filter ancestor=zainalpour/rift-proxy)
+    docker rm -f rift
 ```
 
 ## rift-tui: Interactive Management
 
-Rift also includes an interactive terminal UI:
+Rift also includes an interactive terminal UI for managing a running server's imposters and stubs:
 
 ```bash
-rift-tui
+rift-tui                                     # http://localhost:2525
+rift-tui --admin-url http://localhost:3525   # or RIFT_ADMIN_URL
 ```
 
-### Features
-
-- **View imposters**: Navigate with j/k (vim-style)
-- **Inspect stubs**: See predicates and responses
-- **Generate curl**: Copy test commands
-- **Real-time metrics**: Request counts, latencies
-- **Edit configuration**: Modify stubs live
-
-### Screenshots
-
-```
-┌─ Imposters ─────────────────────────────────────┐
-│ ► :4545 User Service        [3 stubs] [47 req] │
-│   :4546 Order Service       [2 stubs] [12 req] │
-│   :4547 Payment Service     [4 stubs] [8 req]  │
-└─────────────────────────────────────────────────┘
-┌─ Stubs ─────────────────────────────────────────┐
-│ GET /health                 → 200 OK           │
-│ GET /users                  → 200 [array]      │
-│ POST /users                 → 201 Created      │
-└─────────────────────────────────────────────────┘
-┌─ Response Preview ──────────────────────────────┐
-│ {                                               │
-│   "id": 1,                                      │
-│   "name": "Alice",                              │
-│   "email": "alice@example.com"                  │
-│ }                                               │
-└─────────────────────────────────────────────────┘
-  [q]uit  [r]efresh  [c]url  [e]dit  [d]elete
-```
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `j/k` | Navigate up/down |
-| `Enter` | Select/expand |
-| `c` | Copy curl command |
-| `e` | Edit stub |
-| `d` | Delete stub |
-| `r` | Refresh |
-| `q` | Quit |
+See [TUI](https://achird-labs.github.io/rift/features/tui/) in the Rift docs for its screens and
+key bindings.
 
 ## Combining Tools in Workflows
 
@@ -367,11 +365,11 @@ rift-tui
 
 # Lint all imposter files
 if ! rift-lint ./fixtures/ --strict; then
-    echo "❌ Imposter configuration has errors"
+    echo "Imposter configuration has errors"
     exit 1
 fi
 
-echo "✓ Imposter configurations are valid"
+echo "Imposter configurations are valid"
 ```
 
 ### Full Validation Pipeline
@@ -386,9 +384,10 @@ echo "Step 1: Linting configurations..."
 rift-lint ./fixtures/ --strict
 
 echo "Step 2: Starting Rift..."
-rift-http-proxy --configfile ./fixtures/all.json &
+rift --configfile ./fixtures/all.json &
 RIFT_PID=$!
-sleep 2
+trap 'kill $RIFT_PID' EXIT
+until rift healthcheck 2>/dev/null; do sleep 0.5; done
 
 echo "Step 3: Verifying stubs..."
 rift-verify --admin-url http://localhost:2525
@@ -396,33 +395,11 @@ rift-verify --admin-url http://localhost:2525
 echo "Step 4: Running integration tests..."
 npm test
 
-echo "Cleaning up..."
-kill $RIFT_PID
-
-echo "✓ All validations passed!"
+echo "All validations passed!"
 ```
 
-### Docker-Based Validation
-
-```bash
-# Lint
-docker run --rm \
-  -v $(pwd)/fixtures:/fixtures \
-  zainalpour/rift-lint /fixtures --strict
-
-# Verify
-docker run -d --name rift -p 2525:2525 \
-  -v $(pwd)/fixtures:/fixtures \
-  zainalpour/rift-proxy:latest \
-  --configfile /fixtures/all.json
-
-sleep 2
-
-docker run --rm --network host \
-  ghcr.io/etacassiopeia/rift-verify
-
-docker rm -f rift
-```
+`rift healthcheck` exits `0` once the admin API on `--port` (default `2525`) answers, which makes it
+a better wait than a fixed `sleep`.
 
 ## Best Practices
 
@@ -462,30 +439,30 @@ rift-verify --skip-dynamic --timeout 5
 ### 5. Document Expected Failures
 
 ```bash
-# When stubs intentionally cycle/fail
+# When stubs intentionally cycle
 rift-verify --status-only
 ```
 
 ## Troubleshooting
 
-### "Connection refused"
+### Connection refused
 
 ```bash
 # Ensure Rift is running
-curl http://localhost:2525/
+rift healthcheck
 ```
 
-### "Timeout waiting for response"
+### Timeouts
 
 ```bash
 # Increase timeout
 rift-verify --timeout 60
 ```
 
-### "Predicate too complex to generate request"
+### A dynamic stub reported as failed
 
 ```bash
-# Skip complex predicates
+# Skip inject, proxy, script and cycling stubs
 rift-verify --skip-dynamic
 ```
 
@@ -499,7 +476,7 @@ We've covered everything you need to be productive with Rift:
 4. **Advanced Predicates** — JSONPath, XPath, complex matching
 5. **Fault Injection** — Chaos engineering made easy
 6. **Flow State** — Stateful mock services
-7. **Scripting** — Rhai, Lua, JavaScript engines
+7. **Scripting** — Rhai and JavaScript engines
 8. **Proxy Mode** — Recording and replaying
 9. **Production Deployment** — Docker, K8s, CI/CD
 10. **CLI Tools** — rift-verify and rift-lint (this post)
@@ -518,7 +495,7 @@ docker run -p 2525:2525 zainalpour/rift-proxy:latest
 
 ---
 
-*Thank you for following this series! Questions? Feedback? Open an issue on GitHub or comment below.*
+*Thank you for following this series! Questions? Feedback? Open an issue on GitHub.*
 
 ---
 

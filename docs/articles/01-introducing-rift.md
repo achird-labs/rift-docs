@@ -138,7 +138,7 @@ Real APIs have state. A user logs in, adds items to cart, then checks out. Rift 
   "_rift": {
     "script": {
       "engine": "rhai",
-      "code": "let count = flow.get('request_count') + 1; flow.set('request_count', count); #{ statusCode: 200, body: `Request #${count}` }"
+      "code": "let count = ctx.state.incr(\"request_count\"); http(200, `Request #${count}`)"
     }
   }
 }
