@@ -21,7 +21,7 @@ Rift is a high-performance, Mountebank-compatible mock server written in Rust. I
 4. [Advanced Predicates](articles/04-advanced-predicates.md) - Mastering Request Matching
 5. [Fault Injection](articles/05-fault-injection.md) - Chaos Engineering Made Simple
 6. [Flow State](articles/06-flow-state.md) - Stateful Mocking with Rift
-7. [Scripting](articles/07-scripting.md) - Dynamic Responses with Rhai, Lua, and JavaScript
+7. [Scripting](articles/07-scripting.md) - Dynamic Responses with Rhai and JavaScript
 8. [Proxy Mode](articles/08-proxy-mode.md) - Record and Replay Real API Traffic
 9. [Production Deployment](articles/09-production-deployment.md) - Running Rift at Scale
 10. [CLI Tools](articles/10-cli-tools.md) - rift-lint, rift-tui, and rift-verify

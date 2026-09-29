@@ -1,67 +1,73 @@
 ---
 title: 'Building Stateful Mock Services with Flow State'
-description: 'From simple stubs to complex multi-step test scenarios.'
+description: 'Keep state across requests with declarative stateOps or ctx.state scripts, isolate it per caller, and inspect it through the admin API.'
 audience: [developer]
 deployment_mode: []
 language: [any]
 rift_component: docs
 tier: 1
 status: stable
+upstream:
+  - repo: achird-labs/rift
+    paths:
+      - docs/features/flow-state.md
+      - docs/features/scripting.md
+verified_against:
+  rift: v0.18.1
 ---
 
 # Building Stateful Mock Services with Flow State
 
-*From simple stubs to complex multi-step test scenarios*
+*From simple stubs to multi-step test scenarios*
 
 ---
 
+This article is for developers whose mocks need to remember earlier requests. By the end you will
+have counters, a login flow, a shopping cart and a quota built on Rift's flow state, isolated per
+caller, and you will know how to inspect and reset that state from a test.
+
 Most mock servers are stateless. Each request is independent. But real APIs have state:
+
 - Login creates a session
 - Adding items updates a cart
-- Rate limits track request counts
-- Transactions progress through stages
-
-Rift's **Flow State** feature lets you build mocks that remember. Track state across requests, implement complex flows, and test scenarios that were previously impossible.
+- Quotas track request counts
+- Retries succeed after transient failures
 
 ## Understanding Flow State
 
-Flow State provides a key-value store accessible from your mock responses:
+Flow state is a key/value store keyed by *(flow id, key)*. Three things use it:
+
+- **`_rift.stateOps`** writes it declaratively on an `is` response — no script needed.
+- **`{{ state.<key> }}`** reads it back into a templated response (`_rift.templated: true`).
+- **`ctx.state`** reads and writes it from a [script](07-scripting.md).
+
+The imposter's `_rift.flowState` block configures the store:
 
 ```json
 {
   "port": 4545,
+  "protocol": "http",
   "_rift": {
     "flowState": {
       "backend": "inmemory",
-      "ttlSeconds": 300
+      "ttlSeconds": 300,
+      "flowIdSource": "header:X-User-Id"
     }
   },
-  "stubs": [...]
+  "stubs": []
 }
 ```
 
-Scripts can read and write to this store, enabling stateful behavior.
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `backend` | `inmemory` | `inmemory`, or `redis` for state shared across instances |
+| `ttlSeconds` | `300` | Lifetime of a key, restarted by every write to it. Must be at least `1` |
+| `flowIdSource` | `imposter_port` | What a flow is: the whole imposter, or `header:<Name>` for one flow per header value |
 
-## Backend Options
+With `flowIdSource: "header:X-User-Id"`, requests carrying `X-User-Id: alice` and
+`X-User-Id: bob` see separate state — per-user isolation without building keys by hand.
 
-### In-Memory (Default)
-
-```json
-{
-  "_rift": {
-    "flowState": {
-      "backend": "inmemory",
-      "ttlSeconds": 300
-    }
-  }
-}
-```
-
-- **Pros**: Zero setup, fast
-- **Cons**: Lost on restart, single instance only
-- **Use for**: Local development, single-instance testing
-
-### Redis (Distributed)
+For Redis, the connection settings go in a nested `redis` block:
 
 ```json
 {
@@ -69,408 +75,212 @@ Scripts can read and write to this store, enabling stateful behavior.
     "flowState": {
       "backend": "redis",
       "ttlSeconds": 600,
-      "redis": {
-        "url": "redis://localhost:6379",
-        "poolSize": 10,
-        "keyPrefix": "rift:test:"
-      }
+      "redis": { "url": "redis://localhost:6379", "poolSize": 10, "keyPrefix": "rift:" }
     }
   }
 }
 ```
 
-- **Pros**: Persistent, shared across instances
-- **Cons**: Requires Redis server
-- **Use for**: CI/CD, distributed testing, production mocks
+A `flowState` block Rift cannot honour — an unknown backend, an unreachable Redis, a `ttlSeconds`
+below `1` — fails imposter creation with `400` rather than silently running without state. An
+imposter that uses state but has no `flowState` block gets an in-memory store automatically, and
+`rift-lint` reports it as `W014` so the choice is deliberate.
 
-## Basic Counter Example
+## A Counter Without a Script
 
-Track how many times an endpoint is called:
-
-```json
-{
-  "port": 4545,
-  "_rift": {
-    "flowState": { "backend": "inmemory" }
-  },
-  "stubs": [{
-    "predicates": [{ "equals": { "path": "/counter" } }],
-    "responses": [{
-      "_rift": {
-        "script": {
-          "engine": "rhai",
-          "code": "let count = flow.get('count').unwrap_or(0) + 1; flow.set('count', count); #{ statusCode: 200, body: `Count: ${count}` }"
-        }
-      }
-    }]
-  }]
-}
-```
-
-```bash
-curl http://localhost:4545/counter  # Count: 1
-curl http://localhost:4545/counter  # Count: 2
-curl http://localhost:4545/counter  # Count: 3
-```
-
-## Real-World Scenario: Rate Limiting
-
-Implement a rate limiter that allows 10 requests per minute:
+`stateOps` runs after the response is rendered, just before it is written. Here one stub records a
+visit and another reads the totals back:
 
 ```json
 {
   "port": 4545,
+  "protocol": "http",
   "_rift": {
-    "flowState": { "backend": "inmemory", "ttlSeconds": 60 }
-  },
-  "stubs": [{
-    "predicates": [{ "startsWith": { "path": "/api/" } }],
-    "responses": [{
-      "_rift": {
-        "script": {
-          "engine": "rhai",
-          "code": "
-            let count = flow.get('requests').unwrap_or(0) + 1;
-            flow.set('requests', count);
-
-            if count > 10 {
-              #{
-                statusCode: 429,
-                headers: #{ 'Retry-After': '60' },
-                body: #{ error: 'Rate limit exceeded', limit: 10, remaining: 0 }
-              }
-            } else {
-              #{
-                statusCode: 200,
-                headers: #{ 'X-RateLimit-Remaining': `${10 - count}` },
-                body: #{ data: 'OK', remaining: 10 - count }
-              }
-            }
-          "
-        }
-      }
-    }]
-  }]
-}
-```
-
-The TTL of 60 seconds resets the counter automatically.
-
-## Real-World Scenario: Authentication Flow
-
-Simulate login/logout with session tracking:
-
-```json
-{
-  "port": 4545,
-  "_rift": {
-    "flowState": { "backend": "inmemory", "ttlSeconds": 3600 }
+    "flowState": { "backend": "inmemory", "ttlSeconds": 300 }
   },
   "stubs": [
     {
-      "predicates": [
-        { "equals": { "method": "POST", "path": "/login" } }
-      ],
+      "predicates": [{ "equals": { "method": "POST", "path": "/visits" } }],
       "responses": [{
+        "is": { "statusCode": 202 },
         "_rift": {
-          "script": {
-            "engine": "rhai",
-            "code": "
-              let session_id = `sess_${timestamp()}`;
-              flow.set('session', session_id);
-              flow.set('user', 'alice');
-              #{
-                statusCode: 200,
-                headers: #{ 'Set-Cookie': `session=${session_id}` },
-                body: #{ success: true, user: 'alice' }
-              }
-            "
-          }
+          "stateOps": [
+            { "op": "increment", "key": "visits" },
+            { "op": "set", "key": "lastPage", "value": "{{ request.query.page }}" }
+          ]
         }
       }]
     },
     {
-      "predicates": [
-        { "equals": { "path": "/profile" } }
-      ],
+      "predicates": [{ "equals": { "method": "GET", "path": "/visits" } }],
       "responses": [{
-        "_rift": {
-          "script": {
-            "engine": "rhai",
-            "code": "
-              let session = flow.get('session');
-              if session.is_some() {
-                let user = flow.get('user').unwrap_or('unknown');
-                #{ statusCode: 200, body: #{ user: user, authenticated: true } }
-              } else {
-                #{ statusCode: 401, body: #{ error: 'Not authenticated' } }
-              }
-            "
-          }
-        }
-      }]
-    },
-    {
-      "predicates": [
-        { "equals": { "method": "POST", "path": "/logout" } }
-      ],
-      "responses": [{
-        "_rift": {
-          "script": {
-            "engine": "rhai",
-            "code": "
-              flow.delete('session');
-              flow.delete('user');
-              #{ statusCode: 200, body: #{ success: true } }
-            "
-          }
-        }
+        "is": { "statusCode": 200, "body": "{{ state.visits }} visits, last page: {{ state.lastPage }}" },
+        "_rift": { "templated": true }
       }]
     }
   ]
 }
 ```
 
-Test the flow:
-
 ```bash
-# Before login
-curl http://localhost:4545/profile
-# {"error": "Not authenticated"}
-
-# Login
-curl -X POST http://localhost:4545/login
-# {"success": true, "user": "alice"}
-
-# After login
-curl http://localhost:4545/profile
-# {"user": "alice", "authenticated": true}
-
-# Logout
-curl -X POST http://localhost:4545/logout
-
-# After logout
-curl http://localhost:4545/profile
-# {"error": "Not authenticated"}
+curl -X POST 'http://localhost:4545/visits?page=home'   # 202
+curl -X POST 'http://localhost:4545/visits?page=cart'   # 202
+curl http://localhost:4545/visits                       # 2 visits, last page: cart
 ```
 
-## Real-World Scenario: Shopping Cart
+The ops are `increment` (with an optional `by`), `set` (the value is a template), `delete` and
+`clearFlow`. `stateOps` is not scripting, so it works without `--allow-injection`.
+
+## Scripted State: Authentication Flow
+
+When the logic branches, use a script. `ctx.state` is already bound to the request's flow, so with
+`flowIdSource: "header:X-User-Id"` each user gets their own session:
 
 ```json
 {
   "port": 4545,
+  "protocol": "http",
   "_rift": {
-    "flowState": { "backend": "inmemory" }
+    "flowState": { "backend": "inmemory", "ttlSeconds": 3600, "flowIdSource": "header:X-User-Id" }
   },
   "stubs": [
+    {
+      "predicates": [{ "equals": { "method": "POST", "path": "/login" } }],
+      "responses": [{
+        "_rift": { "script": { "engine": "rhai",
+          "code": "ctx.state.set(\"session\", \"sess-\" + ctx.flowId);\nhttp(200, #{ loggedIn: true, user: ctx.flowId })" } }
+      }]
+    },
+    {
+      "predicates": [{ "equals": { "method": "GET", "path": "/profile" } }],
+      "responses": [{
+        "_rift": { "script": { "engine": "rhai",
+          "code": "if ctx.state.exists(\"session\") {\n  http(200, #{ user: ctx.flowId, session: ctx.state.get(\"session\") })\n} else {\n  http(401, #{ error: \"not logged in\" })\n}" } }
+      }]
+    },
+    {
+      "predicates": [{ "equals": { "method": "POST", "path": "/logout" } }],
+      "responses": [{
+        "_rift": { "script": { "engine": "rhai",
+          "code": "ctx.state.clear();\nhttp(204)" } }
+      }]
+    }
+  ]
+}
+```
+
+Start Rift with `--allow-injection`, then:
+
+```bash
+curl -H 'X-User-Id: alice' http://localhost:4545/profile          # 401 {"error":"not logged in"}
+curl -H 'X-User-Id: alice' -X POST http://localhost:4545/login    # 200 {"loggedIn":true,"user":"alice"}
+curl -H 'X-User-Id: alice' http://localhost:4545/profile          # 200 {"session":"sess-alice","user":"alice"}
+curl -H 'X-User-Id: bob'   http://localhost:4545/profile          # 401 — bob has his own flow
+curl -H 'X-User-Id: alice' -X POST http://localhost:4545/logout   # 204
+curl -H 'X-User-Id: alice' http://localhost:4545/profile          # 401
+```
+
+## Scripted State: Shopping Cart
+
+State values can be arrays and objects. The same flow settings, in JavaScript (`getOr` is the
+JavaScript spelling of Rhai's `get_or`):
+
+```json
+{
+  "stubs": [
+    {
+      "predicates": [{ "equals": { "method": "POST", "path": "/cart" } }],
+      "responses": [{
+        "_rift": { "script": { "engine": "javascript",
+          "code": "function respond(ctx) {\n  const cart = ctx.state.getOr('cart', []);\n  cart.push(ctx.request.json);\n  ctx.state.set('cart', cart);\n  return http(201, { items: cart.length });\n}" } }
+      }]
+    },
     {
       "predicates": [{ "equals": { "method": "GET", "path": "/cart" } }],
       "responses": [{
-        "_rift": {
-          "script": {
-            "engine": "rhai",
-            "code": "
-              let items = flow.get('cart_items').unwrap_or([]);
-              let total = 0.0;
-              for item in items { total += item.price * item.quantity; }
-              #{
-                statusCode: 200,
-                body: #{ items: items, total: total, count: items.len() }
-              }
-            "
-          }
-        }
-      }]
-    },
-    {
-      "predicates": [{ "equals": { "method": "POST", "path": "/cart/add" } }],
-      "responses": [{
-        "_rift": {
-          "script": {
-            "engine": "rhai",
-            "code": "
-              let items = flow.get('cart_items').unwrap_or([]);
-              let body = parse_json(request.body);
-              items.push(#{
-                sku: body.sku,
-                name: body.name,
-                price: body.price,
-                quantity: body.quantity
-              });
-              flow.set('cart_items', items);
-              #{ statusCode: 201, body: #{ added: true, cartSize: items.len() } }
-            "
-          }
-        }
-      }]
-    },
-    {
-      "predicates": [{ "equals": { "method": "DELETE", "path": "/cart" } }],
-      "responses": [{
-        "_rift": {
-          "script": {
-            "engine": "rhai",
-            "code": "
-              flow.delete('cart_items');
-              #{ statusCode: 200, body: #{ cleared: true } }
-            "
-          }
-        }
+        "_rift": { "script": { "engine": "javascript",
+          "code": "function respond(ctx) {\n  const cart = ctx.state.getOr('cart', []);\n  const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);\n  return http(200, { items: cart, total });\n}" } }
       }]
     }
   ]
 }
 ```
 
-## Real-World Scenario: Quota Exhaustion
+```bash
+curl -H 'X-User-Id: alice' -X POST http://localhost:4545/cart -d '{"sku":"A1","price":2.5,"qty":2}'  # 201 {"items":1}
+curl -H 'X-User-Id: alice' -X POST http://localhost:4545/cart -d '{"sku":"B2","price":10,"qty":1}'   # 201 {"items":2}
+curl -H 'X-User-Id: alice' http://localhost:4545/cart
+# {"items":[{"price":2.5,"qty":2,"sku":"A1"},{"price":10,"qty":1,"sku":"B2"}],"total":15}
+```
 
-Simulate an API with a usage quota:
+## Scripted State: Quota Exhaustion
 
 ```json
 {
-  "port": 4545,
-  "_rift": {
-    "flowState": { "backend": "inmemory" }
-  },
-  "stubs": [{
-    "predicates": [{ "startsWith": { "path": "/api/" } }],
-    "responses": [{
-      "_rift": {
-        "script": {
-          "engine": "rhai",
-          "code": "
-            let quota = 100;
-            let used = flow.get('api_calls').unwrap_or(0) + 1;
-            flow.set('api_calls', used);
-            let remaining = quota - used;
-
-            if remaining < 0 {
-              #{
-                statusCode: 403,
-                body: #{ error: 'Quota exceeded', used: used, limit: quota }
-              }
-            } else {
-              #{
-                statusCode: 200,
-                headers: #{
-                  'X-Quota-Remaining': `${remaining}`,
-                  'X-Quota-Limit': `${quota}`
-                },
-                body: #{ data: 'OK', quotaRemaining: remaining }
-              }
-            }
-          "
-        }
-      }
-    }]
+  "predicates": [{ "startsWith": { "path": "/api/" } }],
+  "responses": [{
+    "_rift": { "script": { "engine": "rhai",
+      "code": "let used = ctx.state.incr(\"calls\");\nif used > 3 {\n  http(429, #{ error: \"quota exceeded\", limit: 3 }).header(\"Retry-After\", \"60\")\n} else {\n  http(200, #{ ok: true, remaining: 3 - used })\n}" } }
   }]
 }
 ```
 
-## Per-User State with Flow Keys
+The first three calls answer `200` with `remaining` counting down to `0`; the fourth answers `429`.
+`incr` is atomic, so concurrent callers never double-spend the quota.
 
-Use request data to isolate state per user:
+A key's TTL restarts on every write, so a counter that is written on every request never expires
+while traffic keeps arriving. Reset it explicitly between tests, as below.
 
-```json
-{
-  "_rift": {
-    "script": {
-      "engine": "rhai",
-      "code": "
-        // Get user ID from header
-        let user_id = request.headers['X-User-ID'];
-        let key = `cart:${user_id}`;
+## Inspecting and Resetting State from Tests
 
-        let cart = flow.get(key).unwrap_or([]);
-        // ... manipulate cart ...
-        flow.set(key, cart);
+The admin API reads and writes one flow's keys, which is how a test arranges state before it runs
+and cleans up after:
 
-        #{ statusCode: 200, body: cart }
-      "
-    }
-  }
-}
+```bash
+# Read a key (404 if absent)
+curl http://localhost:2525/admin/imposters/4545/flow-state/alice/calls
+# {"flowId":"alice","key":"calls","value":4}
+
+# Set a key
+curl -X PUT http://localhost:2525/admin/imposters/4545/flow-state/alice/calls -d '{"value": 0}'
+
+# Delete one key
+curl -X DELETE http://localhost:2525/admin/imposters/4545/flow-state/alice/calls
+
+# Clear the whole flow (idempotent)
+curl -X DELETE http://localhost:2525/admin/imposters/4545/flow-state/alice
 ```
-
-Each user has independent state.
-
-## Circuit Breaker Pattern
-
-```json
-{
-  "port": 4545,
-  "_rift": {
-    "flowState": { "backend": "inmemory", "ttlSeconds": 30 }
-  },
-  "stubs": [{
-    "responses": [{
-      "_rift": {
-        "script": {
-          "engine": "rhai",
-          "code": "
-            let failures = flow.get('failures').unwrap_or(0);
-            let circuit_open = flow.get('circuit_open').unwrap_or(false);
-
-            if circuit_open {
-              #{ statusCode: 503, body: 'Circuit breaker open' }
-            } else {
-              // Simulate 20% failure rate
-              if rand() < 0.2 {
-                let new_failures = failures + 1;
-                flow.set('failures', new_failures);
-
-                // Open circuit after 5 failures
-                if new_failures >= 5 {
-                  flow.set('circuit_open', true);
-                }
-
-                #{ statusCode: 500, body: 'Service error' }
-              } else {
-                flow.set('failures', 0);
-                #{ statusCode: 200, body: 'OK' }
-              }
-            }
-          "
-        }
-      }
-    }]
-  }]
-}
-```
-
-After 5 failures, the circuit opens for 30 seconds (TTL).
 
 ## Mountebank Cycling vs Rift Flow State
 
-| Feature | Mountebank Cycling | Rift Flow State |
-|---------|-------------------|-----------------|
-| Scope | Global (shared) | Configurable (can be per-user) |
+| Feature | Mountebank response cycling | Rift flow state |
+|---------|-----------------------------|-----------------|
+| Scope | Per stub, shared by every caller | Per flow — per imposter, or per header value |
 | Persistence | Memory only | In-memory or Redis |
-| Reset | Restart server | TTL-based or explicit |
-| Logic | Fixed sequence | Dynamic (scripted) |
-| Isolation | None | Key-based |
+| Reset | Restart, or re-create the imposter | Key TTL, or the flow-state admin API |
+| Logic | Fixed sequence | Declarative `stateOps`, or a script |
 
 **When to use which:**
-- **Cycling**: Simple round-robin responses
-- **Flow State**: Complex conditional logic, per-user state
+
+- **Cycling**: a fixed round-robin of responses
+- **Flow state**: responses that depend on what a caller did before
 
 ## Best Practices
 
-1. **Use descriptive keys**: `user:${id}:cart` not `c1`
-2. **Set appropriate TTLs**: Prevent state buildup
-3. **Use Redis for CI/CD**: Persist across test runs
-4. **Initialize state explicitly**: Don't rely on undefined behavior
-5. **Clean up in beforeEach**: Reset state between tests
+1. **Prefer `stateOps` when it fits**: no script, no `--allow-injection`
+2. **Key flows by caller**: `flowIdSource: "header:<Name>"` isolates parallel tests
+3. **Use Redis when state must be shared** across Rift instances
+4. **Reset state in test setup**: `DELETE /admin/imposters/<port>/flow-state/<flow>`
+5. **Configure `flowState` explicitly**: silence `W014` by making the store a choice
+
+For the full reference — TTL rules, `cas`, `ctx.store`, `stateOps` failure semantics — see
+[Flow State](https://achird-labs.github.io/rift/features/flow-state/) in the Rift docs.
 
 ## What's Next?
 
-We've seen Rhai scripts throughout this post. Let's dive deeper into scripting:
+We've used Rhai and JavaScript scripts throughout this post. Let's dive deeper into scripting:
 
-**Next Post**: Dynamic Responses with Multi-Engine Scripting
-
----
-
-*What stateful scenarios do you need to mock? Share your use cases!*
+**Next Post**: Dynamic Responses with Rhai and JavaScript Scripting
 
 ---
 
