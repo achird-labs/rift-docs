@@ -277,19 +277,41 @@ Useful for:
 
 ## Response Transformation
 
+### Behaviors on the proxy response
+
+A `_behaviors` (or `behaviors`) block on a proxy response runs on the upstream's response before
+anything is recorded, as in Mountebank. The client, the recording and the generated stub all get the
+transformed response:
+
+```json
+{
+  "proxy": { "to": "https://api.example.com", "mode": "proxyOnce" },
+  "_behaviors": {
+    "decorate": "function(request, response) { \
+      // Sanitize sensitive data before it is recorded \
+      if (response.body.apiKey) { \
+        response.body.apiKey = 'REDACTED'; \
+      } \
+    }"
+  }
+}
+```
+
+The generated stub holds the transformed body, not the behaviors, so a replay does not run them
+again. If a behavior fails, nothing is recorded and the next matching request goes upstream again.
+A `decorate` is a script, so it needs `--allowInjection`.
+
 ### addDecorateBehavior
 
-Transform responses before recording:
+Add a `decorate` behavior to the stub the proxy generates. It runs when that stub replays, not on
+the live proxied response, as in Mountebank:
 
 ```json
 {
   "proxy": {
     "to": "https://api.example.com",
     "addDecorateBehavior": "function(request, response) { \
-      // Sanitize sensitive data \
-      if (response.body.apiKey) { \
-        response.body.apiKey = 'REDACTED'; \
-      } \
+      response.headers['X-Proxied-By'] = 'Rift'; \
       return response; \
     }"
   }
@@ -298,18 +320,18 @@ Transform responses before recording:
 
 ### addWaitBehavior
 
-Add latency to proxied responses:
+Record the upstream's observed latency on the generated stub, so replay reproduces it as a `wait`
+behavior. It is a boolean (default `false`), as in Mountebank, and does not delay the proxied
+response itself:
 
 ```json
 {
   "proxy": {
     "to": "https://api.example.com",
-    "addWaitBehavior": 100
+    "addWaitBehavior": true
   }
 }
 ```
-
-Simulates network latency in recorded stubs.
 
 ## Combining Proxy with Static Stubs
 
@@ -452,19 +474,24 @@ Export imposters using the CLI:
 
 ```bash
 # Save all imposters
-rift-http-proxy save --savefile mocks.json
+rift save --savefile mocks.json
 
 # Save without proxy stubs (pure responses)
-rift-http-proxy save --savefile mocks.json --remove-proxies
+rift save --savefile mocks.json --remove-proxies
 ```
 
 The `--remove-proxies` flag removes proxy configurations, leaving only recorded responses.
+
+Both `rift save` and `GET /imposters/:port?replayable=true` export the stubs the imposter is serving
+now — including those a proxy recorded or the stub routes added after creation. Before Rift 0.18.1
+the replayable views were built from the config the imposter was created with, so recorded stubs
+were missing from them.
 
 ## Best Practices
 
 1. **Use consistent predicate generators**: Match enough to be specific, not so much that tests break on irrelevant changes
 
-2. **Sanitize sensitive data**: Use `addDecorateBehavior` to redact tokens, keys, PII
+2. **Sanitize sensitive data**: Use a `decorate` behavior on the proxy response to redact tokens, keys, PII before they are recorded
 
 3. **Version your fixtures**: Commit recorded responses to source control
 

@@ -38,20 +38,26 @@ rift-lint ./imposters/
 rift-lint ./imposters/ --strict
 ```
 
+`rift-lint` reads the same formats `--configfile` does — JSON (`.json`) and YAML (`.yaml`, `.yml`) —
+and scans a directory one level deep, not recursively.
+
 ### What It Checks
 
 **Errors (prevent loading):**
-- Invalid JSON syntax
-- Missing required fields (port, protocol)
-- Port conflicts (same port in multiple files)
+- Files that cannot be read or are not valid JSON or YAML
+- Missing required fields (`port`, `protocol`, `stubs`)
+- Port conflicts — the same port declared twice, inside one file or across files in the directory
+  (`E002`)
 - Invalid predicate structures
 - Malformed behaviors
 
 **Warnings (potential issues):**
-- Deprecated field names
-- Non-standard header values
-- Overlapping predicates
-- Unused response fields
+- Privileged ports
+- A body that is not JSON under a JSON `Content-Type`
+- Unknown proxy modes and potentially dangerous `shellTransform` commands
+- Keys the engine parses but does not act on (`W017`)
+- A `behaviors` array element that sets several behaviors, so they run in a fixed order rather than
+  the order written (`W018`)
 
 ### Example Output
 
@@ -62,17 +68,17 @@ Rift Imposter Linter
 Scanning: ./imposters/
 Found:    5 imposter file(s)
 
-FAIL user-service.json (2 error(s), 1 warning(s))
-  | [stubs[0].responses[0].is.headers] ERROR: Header value must be string (E003)
-  |   -> Convert numeric value to string: "123" instead of 123
-  | [stubs[1].predicates[0]] ERROR: Unknown predicate type 'eqauls' (E004)
-  |   -> Did you mean 'equals'?
-  | [port] WARNING: Port 4545 conflicts with order-service.json (W001)
-  |   -> Consider using unique ports
+FAIL user-service.json (3 error(s))
+  | [stubs[0].responses[0].is.headers.X-Count] ERROR: Header 'X-Count' value is a number, must be a string (E019)
+  |   -> Change to: "X-Count": "123"
+  | [stubs[1].predicates[0]] ERROR: Unknown predicate operator: eqauls (E009)
+  |   -> Use one of: equals, deepEquals, contains, ...
+  | [port] ERROR: Port 4545 is used by 2 imposters: user-service.json, order-service.json (E002)
+  |   -> Assign unique ports to each imposter. Consider using ports 4546+
 
 WARN order-service.json (1 warning(s))
-  | [stubs[0]] WARNING: Stub has no predicates, matches all requests (W002)
-  |   -> Add predicates for explicit matching
+  | [stubs[0]] WARNING: Stub has no responses defined (W002)
+  |   -> Add at least one response
 
 PASS payment-service.json
 PASS auth-service.json
@@ -82,8 +88,8 @@ PASS config-service.json
 Summary
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Files checked: 5
-  Errors:    2
-  Warnings:  2
+  Errors:    3
+  Warnings:  1
 
 Linting failed with errors
 ```
@@ -93,17 +99,17 @@ Linting failed with errors
 Some issues can be fixed automatically:
 
 ```bash
-# Preview fixes
-rift-lint ./imposters/ --fix --verbose
-
-# Apply fixes
 rift-lint ./imposters/ --fix
 ```
 
-Auto-fixable issues:
-- Header values that should be strings
-- Array headers → comma-separated strings
-- Boolean/numeric headers → string conversion
+`--fix` corrects value shapes in `is.headers` (the `E018`, `E019` and `E020` findings):
+- A number → the same number as a string
+- A boolean → the same boolean as a string
+- An array containing a non-string element → each element quoted in place (a string-only array is
+  already legal and is left alone)
+
+It rewrites JSON files only; a YAML file, a templated file, or a file that repeats a key is reported
+but never rewritten.
 
 ### JSON Output for CI
 
@@ -114,16 +120,16 @@ rift-lint ./imposters/ --output json
 ```json
 {
   "files_checked": 5,
-  "errors": 2,
-  "warnings": 2,
+  "errors": 3,
+  "warnings": 1,
   "issues": [
     {
       "severity": "error",
-      "code": "E003",
-      "message": "Header value must be string",
+      "code": "E019",
+      "message": "Header 'X-Count' value is a number, must be a string",
       "file": "user-service.json",
-      "location": "stubs[0].responses[0].is.headers",
-      "suggestion": "Convert numeric value to string"
+      "location": "stubs[0].responses[0].is.headers.X-Count",
+      "suggestion": "Change to: \"X-Count\": \"123\""
     }
   ]
 }
@@ -143,13 +149,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install rift-lint
-        run: |
-          curl -L https://github.com/achird-labs/rift/releases/latest/download/rift-lint-linux-x64.tar.gz | tar xz
-          sudo mv rift-lint /usr/local/bin/
-
       - name: Lint configurations
-        run: rift-lint ./fixtures/ --strict --output json > lint-results.json
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/imposters \
+            zainalpour/rift-lint:latest fixtures/ --strict --output json > lint-results.json
 
       - name: Upload results
         if: failure()

@@ -151,8 +151,7 @@ Each request increments a counter. Build authentication flows, shopping carts, r
 When declarative configuration isn't enough, write dynamic responses in your preferred language:
 
 - **Rhai** (built-in, sandboxed) — Safe and fast
-- **Lua** — Familiar to many developers
-- **JavaScript** — Maximum flexibility
+- **JavaScript** — Maximum flexibility, and Mountebank-compatible `inject`
 
 ### 6. Record and Replay
 
