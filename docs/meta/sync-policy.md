@@ -29,7 +29,7 @@ last reconciled against. It pins all six: `rift`, `rift-cluster`, `rift-node`, `
 - id: rift
   repo: achird-labs/rift
   site: https://achird-labs.github.io/rift/
-  pinned: { release: v0.16.0, commit: 1e400ba…, date: 2026-07-30 }
+  pinned: { release: v0.18.1, commit: c67f78f…, date: 2026-09-29 }
   watch: [docs/, README.md, CHANGELOG.md]
 ```
 

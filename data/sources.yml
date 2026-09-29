@@ -9,7 +9,7 @@ sources:
   - id: rift
     repo: achird-labs/rift
     site: https://achird-labs.github.io/rift/
-    pinned: { release: v0.16.0, commit: 1e400ba3de1ab9fa8c6ff4a7422addaee33f7128, date: 2026-07-30 }
+    pinned: { release: v0.18.1, commit: c67f78ffb36b0020e7e8c31611cfad81a9b9dfb7, date: 2026-09-29 }
     watch: [docs/, README.md, CHANGELOG.md]
 
   - id: rift-cluster
@@ -22,23 +22,25 @@ sources:
   - id: rift-node
     repo: achird-labs/rift-node
     site: https://achird-labs.github.io/rift-node/
+    # Pin held at v0.15.0 until npm publishing is fixed: the v0.16.x releases never reached npm
+    # (achird-labs/rift-node#184), so the hub stays on the newest version readers can install.
     pinned: { release: v0.15.0, commit: 38680683f937f89e3dd6b23f4161e9f46cd9a756, date: 2026-07-21 }
     watch: [docs/, README.md]
 
   - id: rift-java
     repo: achird-labs/rift-java
     site: https://achird-labs.github.io/rift-java/
-    pinned: { release: v0.2.2, commit: 7fbed5f404b3254f8e8aec5743830ad4341f7d9e, date: 2026-07-30 }
+    pinned: { release: v0.3.3, commit: 39b7ad1e2085af8983c8adc22ffb579360697cf8, date: 2026-09-29 }
     watch: [docs/, README.md]
 
   - id: rift-scala
     repo: achird-labs/rift-scala
     site: https://achird-labs.github.io/rift-scala/
-    pinned: { release: v0.1.3, commit: 237d16fb6ed1fa725a4fcfdcd37b228b4987d346, date: 2026-07-30 }
+    pinned: { release: v0.3.1, commit: c88faa09a5414a6146f275ba835be89f1d77df63, date: 2026-09-29 }
     watch: [docs/, README.md]
 
   - id: rift-go
     repo: achird-labs/rift-go
     site: https://achird-labs.github.io/rift-go/
-    pinned: { release: v0.1.0, commit: 5ab912a6fe2054e04e33ff27b07d1e4eda864a62, date: 2026-07-29 }
+    pinned: { release: v0.3.1, commit: 4ed9424e523e082b7de1745921211c345b388cfc, date: 2026-09-29 }
     watch: [docs/, README.md]

@@ -245,9 +245,11 @@ Stack multiple fault types:
 ```
 
 **Order of evaluation:**
-1. TCP fault checked first (if triggered, connection fails)
-2. Error fault checked (if triggered, error response sent)
-3. Latency applied to successful responses
+1. Latency applied first (the response is delayed), then evaluation continues
+2. TCP fault checked (if triggered, the connection is reset and no HTTP response is sent)
+3. Error fault applied only when no TCP fault fired
+
+So latency + TCP is a delay-then-drop, and a TCP fault always wins over an error fault.
 
 ## Real-World Scenarios
 
